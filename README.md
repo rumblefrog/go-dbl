@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/DiscordBotList/go-dbl)](https://goreportcard.com/report/github.com/DiscordBotList/go-dbl)
 [![GoDoc](https://godoc.org/github.com/DiscordBotList/go-dbl?status.svg)](https://godoc.org/github.com/DiscordBotList/go-dbl)
 
-An API wrapper for [Discord Bots](https://discordbots.org/)
+An API wrapper for [Discord Bots](https://top.gg/)
 
 Godoc is available here: https://godoc.org/github.com/DiscordBotList/go-dbl
 
@@ -12,13 +12,15 @@ Godoc is available here: https://godoc.org/github.com/DiscordBotList/go-dbl
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 ## Table of Contents
 
+- [Go DBL](#go-dbl)
+- [Table of Contents](#table-of-contents)
 - [Guides](#guides)
-  - [Installing](#installing)
-  - [Posting Stats](#posting-stats)
-  - [Timeout option](#timeout-option)
-  - [Ratelimits](#ratelimits)
-  - [Webhook](#webhook)
-  - [More details](#more-details)
+	- [Installing](#installing)
+	- [Posting Stats](#posting-stats)
+	- [Setting options](#setting-options)
+	- [Ratelimits](#ratelimits)
+	- [Webhook](#webhook)
+	- [More details](#more-details)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -27,7 +29,7 @@ Godoc is available here: https://godoc.org/github.com/DiscordBotList/go-dbl
 ### Installing
 
 ```bash
-go get -u github.com/DiscordBotList/go-dbl
+go get -u github.com/top-gg/go-dbl
 ```
 
 ### Posting Stats
@@ -36,46 +38,55 @@ go get -u github.com/DiscordBotList/go-dbl
 package main
 
 import (
-	dbl "github.com/DiscordBotList/go-dbl"
+	"log"
+
+	"github.com/top-gg/go-dbl"
 )
 
 func main() {
-	client, err := dbl.NewClient("Token")
-	
+	dblClient, err := dbl.NewClient("token")
 	if err != nil {
-		// Handle error
+		log.Fatalf("Error creating new Discord Bot List client: %s", err)
 	}
-	
-	err = client.PostBotStats("441751906428256277", &BotStatsPayload{
+
+	err = dblClient.PostBotStats("botID", &dbl.BotStatsPayload{
 		Shards: []int{2500}, // If non-sharded, just pass total server count as the only integer element
 	})
-	
 	if err != nil {
-		// Handle error
+		log.Printf("Error sending bot stats to Discord Bot List: %s", err)
 	}
-	
+
 	// ...
 }
 ```
 
-### Timeout option
+### Setting options
 
 ```go
 package main
 
 import (
-	dbl "github.com/DiscordBotList/go-dbl"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/top-gg/go-dbl"
 )
 
+const clientTimeout = 5 * time.Second
+
 func main() {
-	client, err := dbl.NewClient(
-		"Token",
-		dbl.TimeoutOption(time.Second * 5) // Setting timeout option. Default is 3 seconds
+	httpClient := &http.Client{}
+
+	dblClient, err := dbl.NewClient(
+		"token",
+		dbl.HTTPClientOption(httpClient), // Setting a custom HTTP client. Default is *http.Client with default timeout.
+		dbl.TimeoutOption(clientTimeout), // Setting timeout option. Default is 3 seconds
 	)
-	
 	if err != nil {
-		// Handle error
+		log.Fatalf("Error creating new Discord Bot List client: %s", err)
 	}
+
 	// ...
 }
 ```
@@ -94,14 +105,23 @@ If remote rate limit is exceeded, `ErrRemoteRatelimit` error will be returned an
 package main
 
 import (
-	dbl "github.com/DiscordBotList/go-dbl"
+	"errors"
+	"log"
+	"net/http"
+
+	"github.com/top-gg/go-dbl"
 )
 
-func main() {
-	listener := dbl.NewListener("AuthToken", handleVote)
+const listenerPort = ":9090"
 
-	// blocking call
-	listener.Serve(":9090")
+func main() {
+	listener := dbl.NewListener("token", handleVote)
+
+	// Serve is a blocking call
+	err := listener.Serve(listenerPort)
+	if !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("HTTP server error: %s", err)
+	}
 }
 
 func handleVote(payload *dbl.WebhookPayload) {
